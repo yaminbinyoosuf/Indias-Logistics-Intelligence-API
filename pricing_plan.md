@@ -1,0 +1,3 @@
+- Free: 1000 req/mo, 1 req/sec
+- Pro: 50,000 req/mo, 10 req/sec
+- Ultra: 500,000 req/mo, 50 req/sec

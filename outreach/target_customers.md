@@ -1,0 +1,5 @@
+- D2C brands (e.g., boAt, Mamaearth, Wow Skin)
+- Shopify/ONDC sellers
+- Logistics SaaS founders
+- E-commerce ops managers
+- 3PLs (Delhivery, Shiprocket, Ecom Express)
