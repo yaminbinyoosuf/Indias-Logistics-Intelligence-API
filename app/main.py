@@ -71,9 +71,14 @@ async def run_startup_migrations():
             logging.info("pincodes table not found. Running migrations/001_init.sql...")
             with open(MIGRATION_FILE, "r", encoding="utf-8") as f:
                 sql = f.read()
-            # Split and run each statement
-            for stmt in [s.strip() for s in sql.split(';') if s.strip()]:
-                await conn.execute(stmt)
+            # Split and run each statement (skip comments and empty)
+            stmts = [s.strip() for s in sql.split(';') if s.strip() and not s.strip().startswith('--')]
+            for stmt in stmts:
+                try:
+                    await conn.execute(stmt)
+                except Exception as stmt_err:
+                    logging.error(f"Migration statement failed: {stmt}\nError: {stmt_err}")
+                    raise
             logging.info("Migration completed: pincodes table created.")
         else:
             logging.info("pincodes table exists. No migration needed.")
