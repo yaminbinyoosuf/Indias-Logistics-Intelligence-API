@@ -156,9 +156,6 @@ def ingest_pincode_data_if_needed():
                     skipped += 1
         conn.commit()
         logging.info(f"Inserted/Updated: {inserted}, Skipped: {skipped}")
-    except Exception as e:
-        logging.error(f"DB migration failed: {e}")
-        raise
 
 @app.on_event("startup")
 async def startup_event():
