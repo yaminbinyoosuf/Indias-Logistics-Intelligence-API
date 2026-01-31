@@ -3,8 +3,8 @@ from app.core.config import settings
 from app.core.security import verify_api_key
 
 async def api_key_auth(request: Request, call_next):
-    # Allow unauthenticated access to docs and openapi
-    if request.url.path in ["/docs", "/openapi.json", "/redoc"]:
+    # Allow unauthenticated access to docs, openapi, redoc, and healthz
+    if request.url.path in ["/docs", "/openapi.json", "/redoc", "/healthz"]:
         return await call_next(request)
         import logging
         api_key = (

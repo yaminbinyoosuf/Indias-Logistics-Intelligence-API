@@ -163,29 +163,13 @@ async def startup_event():
     # Synchronously check and ingest data if needed
     ingest_pincode_data_if_needed()
 
-# Healthcheck endpoint with DB/table readiness
-@app.get("/healthz", tags=["Health"])
+# Healthcheck endpoint: always 200, supports GET and HEAD, no DB/Redis
+from fastapi.responses import JSONResponse
+from fastapi import Response
+
+@app.api_route("/healthz", methods=["GET", "HEAD"], tags=["Health"])
 async def healthz():
-    try:
-        url = DB_URL.replace("postgresql+asyncpg://", "postgresql://")
-        conn = await asyncpg.connect(url)
-        # Check if pincodes table exists
-        ready = await conn.fetchval("SELECT 1 FROM information_schema.tables WHERE table_name = 'pincodes'")
-        if not ready:
-            await conn.close()
-            return {"status": "error", "detail": "pincodes table missing"}
-        # Check row count
-        count = await conn.fetchval("SELECT COUNT(*) FROM pincodes")
-        if count == 0:
-            await conn.close()
-            return {"status": "error", "detail": "pincodes table empty"}
-        # Try a simple query
-        await conn.fetchval("SELECT 1 FROM pincodes LIMIT 1")
-        await conn.close()
-        return {"status": "ok"}
-    except Exception as e:
-        logging.error(f"/healthz DB check failed: {e}")
-        return {"status": "error", "detail": str(e)}
+    return JSONResponse(content={"status": "ok"}, status_code=200)
 
 # OpenAPI endpoint for RapidAPI import
 @app.get("/openapi.json", include_in_schema=False)

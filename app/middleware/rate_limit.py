@@ -13,6 +13,9 @@ rate_limits = {
 tokens = {}
 
 async def rate_limiter(request: Request, call_next):
+    # Exempt /healthz from rate limiting
+    if request.url.path == "/healthz":
+        return await call_next(request)
     api_key = request.headers.get("X-API-Key", "free")
     plan = "free"
     if api_key.startswith("pro_"):
