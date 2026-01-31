@@ -48,6 +48,17 @@ async def healthz():
 async def get_openapi():
     return app.openapi()
 
-# Middleware
+# Middleware (order matters: API key first, then rate limit)
 app.middleware("http")(api_key_auth)
 app.middleware("http")(rate_limiter)
+
+# Global HTTPException handler for clean JSON
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
