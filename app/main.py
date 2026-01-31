@@ -9,8 +9,12 @@ from app.api.v1.endpoints import router as v1_router
 from app.middleware.api_key import api_key_auth
 from app.middleware.rate_limit import rate_limiter
 
+
 import asyncio
 import asyncpg
+import csv
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 app = FastAPI(
     title="India Logistics Intelligence API",
@@ -87,9 +91,80 @@ async def run_startup_migrations():
         logging.error(f"DB migration failed: {e}")
         raise
 
+# --- Startup Data Ingestion Logic ---
+PINCODE_CSV = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "raw", "all_india_pincode.csv")
+
+def ingest_pincode_data_if_needed():
+    """
+    On startup, if pincodes table is empty, load CSV and insert data. Fail-fast if CSV missing.
+    """
+    # Use SQLAlchemy sync engine for ingestion
+    url = DB_URL.replace("postgresql+asyncpg://", "postgresql://")
+    engine = create_engine(url)
+    with engine.connect() as conn:
+        # Check if pincodes table exists
+        result = conn.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables WHERE table_name = 'pincodes'
+            );
+        """))
+        if not result.scalar():
+            logging.error("pincodes table does not exist for ingestion!")
+            raise RuntimeError("pincodes table missing before ingestion.")
+        # Check row count
+        count = conn.execute(text("SELECT COUNT(*) FROM pincodes")).scalar()
+        if count > 0:
+            logging.info(f"Pincode data already present: {count} rows.")
+            return
+        # Fail-fast if CSV missing
+        if not os.path.exists(PINCODE_CSV):
+            logging.error(f"CSV file not found: {PINCODE_CSV}")
+            raise SystemExit(1)
+        logging.info("Pincode table empty, running ingestion...")
+        inserted, skipped = 0, 0
+        with open(PINCODE_CSV, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                try:
+                    # UPSERT logic (idempotent)
+                    stmt = text('''
+                        INSERT INTO pincodes (pincode, office_name, district, state, tier, serviceable, lat, lon, location)
+                        VALUES (:pincode, :office_name, :district, :state, :tier, :serviceable, :lat, :lon, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography)
+                        ON CONFLICT (pincode) DO UPDATE SET
+                            office_name=EXCLUDED.office_name,
+                            district=EXCLUDED.district,
+                            state=EXCLUDED.state,
+                            tier=EXCLUDED.tier,
+                            serviceable=EXCLUDED.serviceable,
+                            lat=EXCLUDED.lat,
+                            lon=EXCLUDED.lon,
+                            location=EXCLUDED.location
+                    ''')
+                    conn.execute(stmt, {
+                        "pincode": row["pincode"],
+                        "office_name": row["office_name"],
+                        "district": row["district"],
+                        "state": row["state"],
+                        "tier": row["tier"],
+                        "serviceable": str(row["serviceable"]).lower() in ("true", "1", "yes"),
+                        "lat": float(row["lat"]),
+                        "lon": float(row["lon"]),
+                    })
+                    inserted += 1
+                except Exception as e:
+                    logging.error(f"DB error for pincode {row.get('pincode')}: {e}")
+                    skipped += 1
+        conn.commit()
+        logging.info(f"Inserted/Updated: {inserted}, Skipped: {skipped}")
+    except Exception as e:
+        logging.error(f"DB migration failed: {e}")
+        raise
+
 @app.on_event("startup")
 async def startup_event():
     await run_startup_migrations()
+    # Synchronously check and ingest data if needed
+    ingest_pincode_data_if_needed()
 
 # Healthcheck endpoint with DB/table readiness
 @app.get("/healthz", tags=["Health"])
@@ -97,11 +172,16 @@ async def healthz():
     try:
         url = DB_URL.replace("postgresql+asyncpg://", "postgresql://")
         conn = await asyncpg.connect(url)
-        # Check if pincodes table exists and is readable
+        # Check if pincodes table exists
         ready = await conn.fetchval("SELECT 1 FROM information_schema.tables WHERE table_name = 'pincodes'")
         if not ready:
             await conn.close()
             return {"status": "error", "detail": "pincodes table missing"}
+        # Check row count
+        count = await conn.fetchval("SELECT COUNT(*) FROM pincodes")
+        if count == 0:
+            await conn.close()
+            return {"status": "error", "detail": "pincodes table empty"}
         # Try a simple query
         await conn.fetchval("SELECT 1 FROM pincodes LIMIT 1")
         await conn.close()
