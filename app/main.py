@@ -5,10 +5,10 @@ import logging
 import time
 import uuid
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from app.api.v1.endpoints import router as v1_router
 from app.middleware.api_key import api_key_auth
 from app.middleware.rate_limit import rate_limiter
-
 
 import asyncio
 import asyncpg
@@ -22,10 +22,15 @@ app = FastAPI(
     description="Reduce RTO by validating pincodes, calculating distances, and checking serviceability before shipping.",
     openapi_tags=[
         {"name": "Pincode", "description": "Pincode validation and lookup"},
-        {"name": "Logistics", "description": "Serviceability and distance calculation"}
+        {"name": "Logistics", "description": "Serviceability and distance calculation"},
+        {"name": "WhatsApp", "description": "WhatsApp bot integration"}
     ]
 )
 
+# Serve static files (minimal UI)
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 app.include_router(v1_router, prefix="/v1")
 

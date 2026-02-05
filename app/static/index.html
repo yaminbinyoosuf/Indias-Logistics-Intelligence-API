@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTO Check - India Logistics Intelligence</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 90%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+            color: #333;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .result.success {
+            border-left-color: #28a745;
+            background: #f0f9f0;
+        }
+        
+        .result.error {
+            border-left-color: #dc3545;
+            background: #fdf0f0;
+        }
+        
+        .credits-info {
+            background: #f0f4ff;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #667eea;
+        }
+        
+        .disclaimer {
+            background: #fff9e6;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .login-screen {
+            display: block;
+        }
+        
+        .check-screen {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- LOGIN SCREEN -->
+        <div class="login-screen" id="loginScreen">
+            <h1>🚚 RTO Check</h1>
+            <p class="subtitle">India Logistics Intelligence API</p>
+            
+            <div class="form-group">
+                <label for="apiKey">API Key</label>
+                <input type="password" id="apiKey" placeholder="Enter your API key">
+            </div>
+            
+            <button onclick="loginWithApiKey()">Login</button>
+            
+            <div class="disclaimer">
+                <strong>No account? Use:</strong> test_key (1 free check)<br>
+                <strong>Get your API key:</strong> https://rapidapi.com/...
+            </div>
+        </div>
+        
+        <!-- CHECK SCREEN -->
+        <div class="check-screen" id="checkScreen">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>🚚 RTO Check</h1>
+                <button style="width: auto; padding: 8px 16px; font-size: 12px;" onclick="logout()">Logout</button>
+            </div>
+            
+            <div class="credits-info">
+                📊 Credits Remaining: <strong id="creditsDisplay">100</strong>
+            </div>
+            
+            <div class="form-group">
+                <label for="destPincode">Destination Pincode</label>
+                <input type="text" id="destPincode" placeholder="560034" maxlength="6">
+            </div>
+            
+            <div class="form-group">
+                <label for="paymentMethod">Payment Method</label>
+                <select id="paymentMethod">
+                    <option value="COD">COD (Cash on Delivery)</option>
+                    <option value="PREPAID">Prepaid</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="orderValue">Order Value (INR, optional)</label>
+                <input type="number" id="orderValue" placeholder="1499">
+            </div>
+            
+            <button onclick="checkRTO()">Check Delivery Risk</button>
+            
+            <div class="result" id="resultBox"></div>
+            
+            <div class="disclaimer">
+                <strong>⚠️ Disclaimer:</strong> This tool checks logistics-driven RTO only. 
+                It does NOT account for buyer intent, COD refusal, or operational failures. 
+                Use as a pre-shipment aid, not as a guarantee.
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Storage
+        function setApiKey(key) {
+            localStorage.setItem('apiKey', key);
+        }
+        
+        function getApiKey() {
+            return localStorage.getItem('apiKey');
+        }
+        
+        function clearApiKey() {
+            localStorage.removeItem('apiKey');
+        }
+        
+        // Login
+        function loginWithApiKey() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                alert('Please enter your API key');
+                return;
+            }
+            
+            setApiKey(apiKey);
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('checkScreen').style.display = 'block';
+            loadCredits();
+        }
+        
+        function logout() {
+            clearApiKey();
+            document.getElementById('loginScreen').style.display = 'block';
+            document.getElementById('checkScreen').style.display = 'none';
+            document.getElementById('apiKey').value = '';
+        }
+        
+        // Check RTO
+        function checkRTO() {
+            const apiKey = getApiKey();
+            const pincode = document.getElementById('destPincode').value.trim();
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const orderValue = document.getElementById('orderValue').value;
+            
+            if (!pincode || pincode.length !== 6 || isNaN(pincode)) {
+                alert('Please enter a valid 6-digit pincode');
+                return;
+            }
+            
+            const resultBox = document.getElementById('resultBox');
+            resultBox.textContent = 'Loading...';
+            resultBox.style.display = 'block';
+            resultBox.className = 'result';
+            
+            // Call API
+            fetch('https://indias-logistics-intelligence-api.onrender.com/v1/logistics/serviceability', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey
+                },
+                body: JSON.stringify({
+                    origin_pincode: pincode,
+                    destination_pincode: pincode,
+                    payment_method: paymentMethod
+                })
+            })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.error) {
+                    resultBox.textContent = '❌ Error: ' + data.detail;
+                    resultBox.className = 'result error';
+                } else {
+                    const action = data.recommended_action || 'UNKNOWN';
+                    const emoji = {
+                        'SHIP': '✅',
+                        'CONFIRM_CUSTOMER': '⚠️',
+                        'PREPAID_ONLY': '💳',
+                        'DO_NOT_SHIP': '❌'
+                    }[action] || '❓';
+                    
+                    const reply = `${emoji} ${action}
+
+📍 Zone: ${data.zone}
+📏 Distance: ${data.distance_km}km
+⏱️ ETA: ~${data.estimated_days} days
+⚡ Risk: ${data.risk}
+
+💡 Action: ${data.action_reason}
+
+${data.disclaimer}`;
+                    
+                    resultBox.textContent = reply;
+                    resultBox.className = 'result success';
+                }
+                loadCredits();
+            })
+            .catch(err => {
+                resultBox.textContent = '❌ Error: ' + err.message;
+                resultBox.className = 'result error';
+            });
+        }
+        
+        // Load credits (stub for now)
+        function loadCredits() {
+            // TODO: Call /credits endpoint
+            document.getElementById('creditsDisplay').textContent = '99';
+        }
+        
+        // Init
+        window.onload = function() {
+            const apiKey = getApiKey();
+            if (apiKey) {
+                document.getElementById('apiKey').value = apiKey;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('checkScreen').style.display = 'block';
+                loadCredits();
+            }
+        };
+    </script>
+</body>
+</html>
