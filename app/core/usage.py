@@ -9,9 +9,13 @@ Simple model:
 No complex billing logic yet. Just hooks.
 """
 
+from calendar import monthrange
+from datetime import datetime, timezone
+
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+from sqlalchemy.future import select
+from sqlalchemy import func
 
 Base = declarative_base()
 
@@ -49,15 +53,48 @@ PLAN_CREDITS = {
 }
 
 
+def get_plan_for_api_key(api_key: str) -> str:
+    if api_key.startswith("ultra_"):
+        return "ultra"
+    if api_key.startswith("pro_"):
+        return "pro"
+    return "free"
+
+
+async def ensure_seller_credit(api_key: str) -> SellerCredit:
+    """Ensure a seller credit record exists for the given API key."""
+    from app.db.session import SessionLocal
+
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(SellerCredit).where(SellerCredit.api_key == api_key)
+        )
+        seller = result.scalar_one_or_none()
+        if seller:
+            return seller
+
+        plan = get_plan_for_api_key(api_key)
+        total = PLAN_CREDITS[plan]
+        seller = SellerCredit(
+            api_key=api_key,
+            credits_remaining=total,
+            credits_total=total,
+            plan=plan,
+        )
+        session.add(seller)
+        await session.commit()
+        await session.refresh(seller)
+        return seller
+
+
 async def deduct_credit(api_key: str, amount: float = 1.0) -> bool:
     """
     Deduct credit from seller.
     Return True if successful, False if insufficient credits.
     """
     from app.db.session import SessionLocal
-    from sqlalchemy import update
-
     async with SessionLocal() as session:
+        await ensure_seller_credit(api_key)
         # Check current credits
         result = await session.execute(
             select(SellerCredit).where(SellerCredit.api_key == api_key)
@@ -76,8 +113,9 @@ async def deduct_credit(api_key: str, amount: float = 1.0) -> bool:
 async def log_usage(api_key: str, endpoint: str, status_code: int = 200):
     """Log API usage for audit."""
     from app.db.session import SessionLocal
-    
+
     async with SessionLocal() as session:
+        await ensure_seller_credit(api_key)
         log = UsageLog(
             api_key=api_key,
             endpoint=endpoint,
@@ -91,10 +129,42 @@ async def log_usage(api_key: str, endpoint: str, status_code: int = 200):
 async def get_credits_remaining(api_key: str) -> float:
     """Get remaining credits for a seller."""
     from app.db.session import SessionLocal
-    
+
     async with SessionLocal() as session:
+        await ensure_seller_credit(api_key)
         result = await session.execute(
             select(SellerCredit).where(SellerCredit.api_key == api_key)
         )
         seller = result.scalar_one_or_none()
         return seller.credits_remaining if seller else 0.0
+
+
+async def get_usage_summary(api_key: str) -> dict:
+    """Return plan, quota, and current-month usage for an API key."""
+    from app.db.session import SessionLocal
+
+    seller = await ensure_seller_credit(api_key)
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_day = monthrange(now.year, now.month)[1]
+    month_end = now.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999)
+
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(func.count(UsageLog.id)).where(
+                UsageLog.api_key == api_key,
+                UsageLog.timestamp >= month_start,
+                UsageLog.timestamp <= month_end,
+            )
+        )
+        usage_this_month = int(result.scalar_one() or 0)
+
+    credits_remaining = max(int(seller.credits_total - usage_this_month), 0)
+    return {
+        "api_key": api_key,
+        "plan": seller.plan,
+        "credits_remaining": credits_remaining,
+        "credits_total": int(seller.credits_total),
+        "usage_this_month": usage_this_month,
+    }

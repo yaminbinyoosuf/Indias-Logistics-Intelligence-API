@@ -1,5 +1,5 @@
-
-from fastapi import Request, HTTPException
+from fastapi import Request
+from fastapi.responses import JSONResponse
 import time
 import logging
 from app.core.config import settings
@@ -14,9 +14,10 @@ tokens = {}
 
 async def rate_limiter(request: Request, call_next):
     # Exempt /healthz from rate limiting
-    if request.url.path == "/healthz":
+    if request.url.path in {"/", "/docs", "/openapi.json", "/redoc", "/healthz"} or request.url.path.startswith("/static"):
         return await call_next(request)
-    api_key = request.headers.get("X-API-Key", "free")
+
+    api_key = request.headers.get("X-RapidAPI-Key") or request.headers.get("X-API-Key", "free")
     plan = "free"
     if api_key.startswith("pro_"):
         plan = "pro"
@@ -30,7 +31,17 @@ async def rate_limiter(request: Request, call_next):
     bucket["last"] = now
     if bucket["tokens"] < 1:
         logging.warning(f"Rate limit exceeded for key {api_key}")
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please slow down.")
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Please slow down."},
+            headers={
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Plan": plan,
+            },
+        )
     bucket["tokens"] -= 1
+    remaining = max(int(bucket["tokens"]), 0)
     response = await call_next(request)
+    response.headers["X-RateLimit-Remaining"] = str(remaining)
+    response.headers["X-RateLimit-Plan"] = plan
     return response

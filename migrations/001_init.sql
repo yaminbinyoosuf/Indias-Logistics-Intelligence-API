@@ -17,5 +17,27 @@ CREATE TABLE IF NOT EXISTS pincodes (
 CREATE INDEX IF NOT EXISTS idx_pincode_location ON pincodes USING GIST (location);
 CREATE INDEX IF NOT EXISTS idx_pincode_trgm ON pincodes USING GIN (pincode gin_trgm_ops);
 
+CREATE TABLE IF NOT EXISTS seller_credits (
+    id SERIAL PRIMARY KEY,
+    api_key VARCHAR(128) UNIQUE NOT NULL,
+    credits_remaining FLOAT NOT NULL DEFAULT 100,
+    credits_total FLOAT NOT NULL DEFAULT 100,
+    plan VARCHAR(50) NOT NULL DEFAULT 'free',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS usage_logs (
+    id SERIAL PRIMARY KEY,
+    api_key VARCHAR(128) NOT NULL,
+    endpoint VARCHAR(255) NOT NULL,
+    credits_consumed FLOAT NOT NULL DEFAULT 1.0,
+    response_status INTEGER,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_logs_api_key ON usage_logs (api_key);
+CREATE INDEX IF NOT EXISTS idx_usage_logs_timestamp ON usage_logs (timestamp);
+
 -- Health check query for DB readiness
 -- Usage: SELECT 1 FROM pincodes LIMIT 1;

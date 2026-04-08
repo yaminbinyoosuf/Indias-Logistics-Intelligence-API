@@ -1,5 +1,6 @@
 volumes:
   pgdata:
+
 services:
   db:
     image: postgis/postgis:15-3.3
@@ -18,15 +19,32 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
+    restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/postgres
       REDIS_URL: redis://redis:6379/0
-      API_KEYS: test_key,pro_test,ultra_test
+      API_KEYS: free_demo_key,pro_demo_key,ultra_demo_key,test_key
+      DATA_DIR: /app/data
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./data:/app/data:ro

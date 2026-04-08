@@ -1,20 +1,19 @@
-
-
 import os
 import logging
 import time
 import uuid
-from fastapi import FastAPI, Request
+import csv
+
+import asyncpg
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import create_engine, text
+
 from app.api.v1.endpoints import router as v1_router
 from app.middleware.api_key import api_key_auth
 from app.middleware.rate_limit import rate_limiter
-
-import asyncio
-import asyncpg
-import csv
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from app.middleware.usage_tracking import usage_tracker
 
 app = FastAPI(
     title="India Logistics Intelligence API",
@@ -69,15 +68,15 @@ async def run_startup_migrations():
         # Ensure PostGIS extension exists
         await conn.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
         await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
-        # Check if pincodes table exists
-        table_exists = await conn.fetchval("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'pincodes'
-            );
+        table_status = await conn.fetch("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_name IN ('pincodes', 'seller_credits', 'usage_logs');
         """)
-        if not table_exists:
-            logging.info("pincodes table not found. Running migrations/001_init.sql...")
+        existing_tables = {row["table_name"] for row in table_status}
+
+        if not {"pincodes", "seller_credits", "usage_logs"}.issubset(existing_tables):
+            logging.info("Required tables missing. Running migrations/001_init.sql...")
             with open(MIGRATION_FILE, "r", encoding="utf-8") as f:
                 sql = f.read()
             # Split and run each statement (skip comments and empty)
@@ -88,9 +87,9 @@ async def run_startup_migrations():
                 except Exception as stmt_err:
                     logging.error(f"Migration statement failed: {stmt}\nError: {stmt_err}")
                     raise
-            logging.info("Migration completed: pincodes table created.")
+            logging.info("Migration completed: required tables created.")
         else:
-            logging.info("pincodes table exists. No migration needed.")
+            logging.info("All required tables exist. No migration needed.")
         await conn.close()
     except Exception as e:
         logging.error(f"DB migration failed: {e}")
@@ -168,9 +167,15 @@ async def startup_event():
     # Synchronously check and ingest data if needed
     ingest_pincode_data_if_needed()
 
-# Healthcheck endpoint: always 200, supports GET and HEAD, no DB/Redis
-from fastapi.responses import JSONResponse
-from fastapi import Response
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return {
+        "name": "India Logistics Intelligence API",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/healthz",
+    }
 
 @app.api_route("/healthz", methods=["GET", "HEAD"], tags=["Health"])
 async def healthz():
@@ -181,14 +186,12 @@ async def healthz():
 async def get_openapi():
     return app.openapi()
 
-# Middleware (order matters: API key first, then rate limit)
-app.middleware("http")(api_key_auth)
+# Middleware registration is reversed at runtime, so add them in reverse order.
+app.middleware("http")(usage_tracker)
 app.middleware("http")(rate_limiter)
+app.middleware("http")(api_key_auth)
 
 # Global HTTPException handler for clean JSON
-from fastapi.responses import JSONResponse
-from fastapi import HTTPException
-
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(

@@ -3,324 +3,482 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RTO Check - India Logistics Intelligence</title>
+    <title>India Logistics Intelligence API</title>
     <style>
+        :root {
+            --bg: linear-gradient(135deg, #f5efe6 0%, #d6e6f2 100%);
+            --panel: rgba(255, 255, 255, 0.92);
+            --ink: #1f2937;
+            --muted: #5b6472;
+            --accent: #0f766e;
+            --accent-dark: #115e59;
+            --border: rgba(15, 118, 110, 0.18);
+            --success: #1f8f4e;
+            --warning: #b45309;
+            --danger: #b91c1c;
+            --shadow: 0 20px 45px rgba(31, 41, 55, 0.12);
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background: var(--bg);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            padding: 24px;
         }
-        
-        .container {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            width: 90%;
-            padding: 40px;
+
+        .shell {
+            max-width: 980px;
+            margin: 0 auto;
+            display: grid;
+            gap: 20px;
         }
-        
-        h1 {
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 28px;
+
+        .hero,
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
         }
-        
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
+
+        .hero {
+            padding: 28px;
         }
-        
-        .form-group {
-            margin-bottom: 20px;
+
+        .hero h1 {
+            margin: 0 0 8px;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1.05;
         }
-        
+
+        .hero p {
+            margin: 0;
+            max-width: 720px;
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        .grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .panel {
+            padding: 24px;
+        }
+
+        h2 {
+            margin: 0 0 16px;
+            font-size: 1.15rem;
+        }
+
         label {
             display: block;
             margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-        }
-        
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        button {
-            width: 100%;
-            padding: 12px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
             font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px solid #cbd5e1;
+            font: inherit;
+            background: #fff;
+            color: var(--ink);
+        }
+
+        input:focus,
+        select:focus {
+            outline: 3px solid rgba(15, 118, 110, 0.14);
+            border-color: var(--accent);
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 0;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font: inherit;
+            font-weight: 700;
             cursor: pointer;
-            transition: background 0.3s;
         }
-        
-        button:hover {
-            background: #5568d3;
+
+        .primary {
+            background: var(--accent);
+            color: #fff;
         }
-        
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
+
+        .primary:hover {
+            background: var(--accent-dark);
         }
-        
-        .result {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f9f9f9;
-            border-left: 4px solid #667eea;
-            border-radius: 6px;
-            white-space: pre-wrap;
-            font-family: monospace;
-            font-size: 13px;
-            color: #333;
-            max-height: 300px;
-            overflow-y: auto;
-            display: none;
+
+        .secondary {
+            background: #e2e8f0;
+            color: var(--ink);
         }
-        
-        .result.success {
-            border-left-color: #28a745;
-            background: #f0f9f0;
+
+        .status {
+            display: grid;
+            gap: 12px;
         }
-        
-        .result.error {
-            border-left-color: #dc3545;
-            background: #fdf0f0;
+
+        .metric {
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
         }
-        
-        .credits-info {
-            background: #f0f4ff;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            color: #667eea;
-        }
-        
-        .disclaimer {
-            background: #fff9e6;
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 20px;
-            font-size: 12px;
-            color: #666;
-            border-left: 4px solid #ffc107;
-        }
-        
-        .login-screen {
+
+        .metric strong {
             display: block;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+            color: var(--muted);
         }
-        
-        .check-screen {
+
+        .metric span {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .result-card {
+            border-radius: 18px;
+            padding: 20px;
+            border: 1px solid #dbeafe;
+            background: #fff;
             display: none;
+        }
+
+        .result-card.ship {
+            border-color: rgba(31, 143, 78, 0.32);
+            background: rgba(240, 253, 244, 0.9);
+        }
+
+        .result-card.prepaid_only,
+        .result-card.confirm_customer {
+            border-color: rgba(180, 83, 9, 0.32);
+            background: rgba(255, 247, 237, 0.95);
+        }
+
+        .result-card.do_not_ship {
+            border-color: rgba(185, 28, 28, 0.32);
+            background: rgba(254, 242, 242, 0.95);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .ship .pill {
+            background: rgba(31, 143, 78, 0.12);
+            color: var(--success);
+        }
+
+        .prepaid_only .pill,
+        .confirm_customer .pill {
+            background: rgba(180, 83, 9, 0.12);
+            color: var(--warning);
+        }
+
+        .do_not_ship .pill {
+            background: rgba(185, 28, 28, 0.12);
+            color: var(--danger);
+        }
+
+        .helper,
+        .disclaimer {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .error {
+            color: var(--danger);
+            margin-top: 12px;
+            font-size: 0.95rem;
+            min-height: 1.2em;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        @media (max-width: 680px) {
+            body {
+                padding: 16px;
+            }
+
+            .panel,
+            .hero {
+                padding: 20px;
+                border-radius: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- LOGIN SCREEN -->
-        <div class="login-screen" id="loginScreen">
-            <h1>🚚 RTO Check</h1>
-            <p class="subtitle">India Logistics Intelligence API</p>
-            
-            <div class="form-group">
-                <label for="apiKey">API Key</label>
-                <input type="password" id="apiKey" placeholder="Enter your API key">
-            </div>
-            
-            <button onclick="loginWithApiKey()">Login</button>
-            
-            <div class="disclaimer">
-                <strong>No account? Use:</strong> test_key (1 free check)<br>
-                <strong>Get your API key:</strong> https://rapidapi.com/...
-            </div>
+    <div class="shell">
+        <section class="hero">
+            <h1>India Logistics Intelligence API</h1>
+            <p>Check serviceability before dispatch, compare COD risk, and keep your credits visible in one clean seller workflow.</p>
+        </section>
+
+        <div class="grid">
+            <section class="panel">
+                <h2>Run a Check</h2>
+
+                <div class="field">
+                    <label for="apiKey">API Key</label>
+                    <input id="apiKey" type="password" placeholder="Enter X-API-Key or X-RapidAPI-Key">
+                </div>
+
+                <div class="field">
+                    <label for="originPincode">Origin Pincode</label>
+                    <input id="originPincode" type="text" maxlength="6" placeholder="110001">
+                </div>
+
+                <div class="field">
+                    <label for="destinationPincode">Destination Pincode</label>
+                    <input id="destinationPincode" type="text" maxlength="6" placeholder="560001">
+                </div>
+
+                <div class="field">
+                    <label for="paymentMethod">Payment Method</label>
+                    <select id="paymentMethod">
+                        <option value="COD">COD</option>
+                        <option value="PREPAID">Prepaid</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label for="orderValue">Order Value (optional)</label>
+                    <input id="orderValue" type="number" min="0" step="1" placeholder="1499">
+                </div>
+
+                <div class="actions">
+                    <button id="submitBtn" class="primary" type="button">Check Delivery Risk</button>
+                    <button id="refreshUsageBtn" class="secondary" type="button">Refresh Credits</button>
+                </div>
+
+                <p class="helper" style="margin-top: 14px;">Your API key and origin pincode are saved in local storage on this device.</p>
+                <p id="formError" class="error"></p>
+            </section>
+
+            <section class="panel status">
+                <h2>Usage Snapshot</h2>
+                <div class="metric">
+                    <strong>Plan</strong>
+                    <span id="planValue">-</span>
+                </div>
+                <div class="metric">
+                    <strong>Credits Remaining</strong>
+                    <span id="creditsRemainingValue">-</span>
+                </div>
+                <div class="metric">
+                    <strong>Monthly Usage</strong>
+                    <span id="usageThisMonthValue">-</span>
+                </div>
+                <div class="metric">
+                    <strong>Masked Key</strong>
+                    <span id="maskedKeyValue">-</span>
+                </div>
+            </section>
         </div>
-        
-        <!-- CHECK SCREEN -->
-        <div class="check-screen" id="checkScreen">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h1>🚚 RTO Check</h1>
-                <button style="width: auto; padding: 8px 16px; font-size: 12px;" onclick="logout()">Logout</button>
+
+        <section class="panel">
+            <h2>Decision</h2>
+            <div id="resultCard" class="result-card">
+                <div id="actionPill" class="pill">Decision</div>
+                <div class="grid">
+                    <div class="metric">
+                        <strong>Zone</strong>
+                        <span id="zoneValue">-</span>
+                    </div>
+                    <div class="metric">
+                        <strong>Distance</strong>
+                        <span id="distanceValue">-</span>
+                    </div>
+                    <div class="metric">
+                        <strong>ETA</strong>
+                        <span id="etaValue">-</span>
+                    </div>
+                    <div class="metric">
+                        <strong>Risk</strong>
+                        <span id="riskValue">-</span>
+                    </div>
+                </div>
+                <p id="reasonValue" style="margin: 18px 0 8px; font-weight: 600;"></p>
+                <p id="disclaimerValue" class="disclaimer"></p>
             </div>
-            
-            <div class="credits-info">
-                📊 Credits Remaining: <strong id="creditsDisplay">100</strong>
-            </div>
-            
-            <div class="form-group">
-                <label for="destPincode">Destination Pincode</label>
-                <input type="text" id="destPincode" placeholder="560034" maxlength="6">
-            </div>
-            
-            <div class="form-group">
-                <label for="paymentMethod">Payment Method</label>
-                <select id="paymentMethod">
-                    <option value="COD">COD (Cash on Delivery)</option>
-                    <option value="PREPAID">Prepaid</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label for="orderValue">Order Value (INR, optional)</label>
-                <input type="number" id="orderValue" placeholder="1499">
-            </div>
-            
-            <button onclick="checkRTO()">Check Delivery Risk</button>
-            
-            <div class="result" id="resultBox"></div>
-            
-            <div class="disclaimer">
-                <strong>⚠️ Disclaimer:</strong> This tool checks logistics-driven RTO only. 
-                It does NOT account for buyer intent, COD refusal, or operational failures. 
-                Use as a pre-shipment aid, not as a guarantee.
-            </div>
-        </div>
+        </section>
     </div>
-    
+
     <script>
-        // Storage
-        function setApiKey(key) {
-            localStorage.setItem('apiKey', key);
+        const apiKeyInput = document.getElementById("apiKey");
+        const originInput = document.getElementById("originPincode");
+        const destinationInput = document.getElementById("destinationPincode");
+        const paymentInput = document.getElementById("paymentMethod");
+        const orderValueInput = document.getElementById("orderValue");
+        const submitBtn = document.getElementById("submitBtn");
+        const refreshUsageBtn = document.getElementById("refreshUsageBtn");
+        const formError = document.getElementById("formError");
+        const resultCard = document.getElementById("resultCard");
+        const actionPill = document.getElementById("actionPill");
+
+        function loadPersisted() {
+            apiKeyInput.value = localStorage.getItem("ili_api_key") || "";
+            originInput.value = localStorage.getItem("ili_origin_pincode") || "110001";
         }
-        
-        function getApiKey() {
-            return localStorage.getItem('apiKey');
+
+        function persist() {
+            localStorage.setItem("ili_api_key", apiKeyInput.value.trim());
+            localStorage.setItem("ili_origin_pincode", originInput.value.trim());
         }
-        
-        function clearApiKey() {
-            localStorage.removeItem('apiKey');
+
+        function setLoading(isLoading) {
+            document.body.classList.toggle("loading", isLoading);
+            submitBtn.disabled = isLoading;
+            refreshUsageBtn.disabled = isLoading;
         }
-        
-        // Login
-        function loginWithApiKey() {
-            const apiKey = document.getElementById('apiKey').value.trim();
+
+        function getHeaders() {
+            return {
+                "Content-Type": "application/json",
+                "X-API-Key": apiKeyInput.value.trim()
+            };
+        }
+
+        function validatePincode(value) {
+            return /^\d{6}$/.test(value);
+        }
+
+        function setUsage(data) {
+            document.getElementById("planValue").textContent = data.plan;
+            document.getElementById("creditsRemainingValue").textContent = `${data.credits_remaining} / ${data.credits_total}`;
+            document.getElementById("usageThisMonthValue").textContent = data.usage_this_month;
+            document.getElementById("maskedKeyValue").textContent = data.api_key;
+        }
+
+        function normalizeActionClass(action) {
+            return action.toLowerCase();
+        }
+
+        function renderResult(data) {
+            const action = data.recommended_action || "UNKNOWN";
+            resultCard.className = `result-card ${normalizeActionClass(action)}`;
+            resultCard.style.display = "block";
+
+            actionPill.textContent = action;
+            document.getElementById("zoneValue").textContent = data.zone;
+            document.getElementById("distanceValue").textContent = `${data.distance_km} km`;
+            document.getElementById("etaValue").textContent = `${data.estimated_days} day(s)`;
+            document.getElementById("riskValue").textContent = data.risk;
+            document.getElementById("reasonValue").textContent = data.action_reason;
+            document.getElementById("disclaimerValue").textContent = data.disclaimer;
+        }
+
+        async function fetchUsage() {
+            const key = apiKeyInput.value.trim();
+            if (!key) {
+                return;
+            }
+
+            const response = await fetch("/v1/usage", { headers: getHeaders() });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.detail || "Unable to load usage");
+            }
+            setUsage(data);
+        }
+
+        async function submitCheck() {
+            formError.textContent = "";
+            persist();
+
+            const apiKey = apiKeyInput.value.trim();
+            const origin = originInput.value.trim();
+            const destination = destinationInput.value.trim();
+
             if (!apiKey) {
-                alert('Please enter your API key');
+                formError.textContent = "Enter your API key first.";
                 return;
             }
-            
-            setApiKey(apiKey);
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('checkScreen').style.display = 'block';
-            loadCredits();
-        }
-        
-        function logout() {
-            clearApiKey();
-            document.getElementById('loginScreen').style.display = 'block';
-            document.getElementById('checkScreen').style.display = 'none';
-            document.getElementById('apiKey').value = '';
-        }
-        
-        // Check RTO
-        function checkRTO() {
-            const apiKey = getApiKey();
-            const pincode = document.getElementById('destPincode').value.trim();
-            const paymentMethod = document.getElementById('paymentMethod').value;
-            const orderValue = document.getElementById('orderValue').value;
-            
-            if (!pincode || pincode.length !== 6 || isNaN(pincode)) {
-                alert('Please enter a valid 6-digit pincode');
+            if (!validatePincode(origin) || !validatePincode(destination)) {
+                formError.textContent = "Origin and destination must both be valid 6-digit pincodes.";
                 return;
             }
-            
-            const resultBox = document.getElementById('resultBox');
-            resultBox.textContent = 'Loading...';
-            resultBox.style.display = 'block';
-            resultBox.className = 'result';
-            
-            // Call API
-            fetch('https://indias-logistics-intelligence-api.onrender.com/v1/logistics/serviceability', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': apiKey
-                },
-                body: JSON.stringify({
-                    origin_pincode: pincode,
-                    destination_pincode: pincode,
-                    payment_method: paymentMethod
-                })
-            })
-            .then(resp => resp.json())
-            .then(data => {
-                if (data.error) {
-                    resultBox.textContent = '❌ Error: ' + data.detail;
-                    resultBox.className = 'result error';
-                } else {
-                    const action = data.recommended_action || 'UNKNOWN';
-                    const emoji = {
-                        'SHIP': '✅',
-                        'CONFIRM_CUSTOMER': '⚠️',
-                        'PREPAID_ONLY': '💳',
-                        'DO_NOT_SHIP': '❌'
-                    }[action] || '❓';
-                    
-                    const reply = `${emoji} ${action}
 
-📍 Zone: ${data.zone}
-📏 Distance: ${data.distance_km}km
-⏱️ ETA: ~${data.estimated_days} days
-⚡ Risk: ${data.risk}
-
-💡 Action: ${data.action_reason}
-
-${data.disclaimer}`;
-                    
-                    resultBox.textContent = reply;
-                    resultBox.className = 'result success';
+            setLoading(true);
+            try {
+                const response = await fetch("/v1/logistics/serviceability", {
+                    method: "POST",
+                    headers: getHeaders(),
+                    body: JSON.stringify({
+                        origin_pincode: origin,
+                        destination_pincode: destination,
+                        payment_method: paymentInput.value,
+                        order_value: orderValueInput.value ? Number(orderValueInput.value) : null
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || "Serviceability check failed");
                 }
-                loadCredits();
-            })
-            .catch(err => {
-                resultBox.textContent = '❌ Error: ' + err.message;
-                resultBox.className = 'result error';
-            });
-        }
-        
-        // Load credits (stub for now)
-        function loadCredits() {
-            // TODO: Call /credits endpoint
-            document.getElementById('creditsDisplay').textContent = '99';
-        }
-        
-        // Init
-        window.onload = function() {
-            const apiKey = getApiKey();
-            if (apiKey) {
-                document.getElementById('apiKey').value = apiKey;
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('checkScreen').style.display = 'block';
-                loadCredits();
+
+                renderResult(data);
+                await fetchUsage();
+            } catch (error) {
+                formError.textContent = error.message;
+            } finally {
+                setLoading(false);
             }
-        };
+        }
+
+        submitBtn.addEventListener("click", submitCheck);
+        refreshUsageBtn.addEventListener("click", async () => {
+            formError.textContent = "";
+            persist();
+            setLoading(true);
+            try {
+                await fetchUsage();
+            } catch (error) {
+                formError.textContent = error.message;
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        loadPersisted();
+        if (apiKeyInput.value.trim()) {
+            fetchUsage().catch(() => {});
+        }
     </script>
 </body>
 </html>

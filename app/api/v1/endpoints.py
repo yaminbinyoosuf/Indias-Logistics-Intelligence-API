@@ -1,15 +1,41 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, HTTPException, Query, Request
 from app.schemas.pincode import PincodeResponse
-from app.schemas.logistics import ServiceabilityRequest, ServiceabilityResponse, NearbyPincodesResponse
+from app.schemas.logistics import (
+    NearbyPincodesResponse,
+    ServiceabilityRequest,
+    ServiceabilityResponse,
+    UsageResponse,
+    WhatsAppCheckRequest,
+)
 from app.db.crud import (
     get_pincode_info,
     check_serviceability,
     get_nearby_pincodes
 )
+from app.core.usage import get_usage_summary
 from app.utils.whatsapp_bot import WhatsAppBotParser, WhatsAppResponseFormatter
 import logging
 
 router = APIRouter()
+
+
+@router.get(
+    "/pincode/nearby",
+    response_model=NearbyPincodesResponse,
+    tags=["Pincode"],
+    summary="Find nearby pincodes within radius (km)",
+    description="Returns a list of pincodes within the given radius (km) of the specified pincode.",
+    openapi_extra={
+        "x-codeSamples": [
+            {
+                "lang": "curl",
+                "source": "curl -H 'X-API-Key: test_key' 'http://localhost:8000/v1/pincode/nearby?pincode=560001&radius=5'"
+            }
+        ]
+    }
+)
+async def nearby_pincodes(pincode: str = Query(...), radius: float = Query(...)):
+    return await get_nearby_pincodes(pincode, radius)
 
 
 @router.get(
@@ -31,7 +57,7 @@ router = APIRouter()
         ]
     }
 )
-async def pincode_lookup(pincode: str, x_api_key: str = Header(..., alias="X-API-Key")):
+async def pincode_lookup(pincode: str):
     result = await get_pincode_info(pincode)
     if not result:
         raise HTTPException(status_code=404, detail="Pincode not found")
@@ -53,28 +79,9 @@ async def pincode_lookup(pincode: str, x_api_key: str = Header(..., alias="X-API
         ]
     }
 )
-async def logistics_serviceability(payload: ServiceabilityRequest, x_api_key: str = Header(..., alias="X-API-Key")):
+async def logistics_serviceability(payload: ServiceabilityRequest):
     payment_method = getattr(payload, 'payment_method', 'COD')
     return await check_serviceability(payload.origin_pincode, payload.destination_pincode, payment_method)
-
-
-@router.get(
-    "/pincode/nearby",
-    response_model=NearbyPincodesResponse,
-    tags=["Pincode"],
-    summary="Find nearby pincodes within radius (km)",
-    description="Returns a list of pincodes within the given radius (km) of the specified pincode.",
-    openapi_extra={
-        "x-codeSamples": [
-            {
-                "lang": "curl",
-                "source": "curl -H 'X-API-Key: test_key' 'http://localhost:8000/v1/pincode/nearby?pincode=560001&radius=5'"
-            }
-        ]
-    }
-)
-async def nearby_pincodes(pincode: str = Query(...), radius: float = Query(...), x_api_key: str = Header(..., alias="X-API-Key")):
-    return await get_nearby_pincodes(pincode, radius)
 
 
 @router.post(
@@ -92,8 +99,7 @@ async def nearby_pincodes(pincode: str = Query(...), radius: float = Query(...),
     }
 )
 async def whatsapp_check(
-    message: dict,  # {"message": "560034 COD 1499"}
-    x_api_key: str = Header(..., alias="X-API-Key")
+    message: WhatsAppCheckRequest,
 ):
     """
     Parse WhatsApp message and return shipping decision.
@@ -104,7 +110,7 @@ async def whatsapp_check(
     "560034 COD 1499" - pincode + payment method + order value
     """
     try:
-        msg_text = message.get("message", "").strip()
+        msg_text = message.message.strip()
         
         # Parse message
         pincode, payment_method, order_value = WhatsAppBotParser.parse_message(msg_text)
@@ -124,18 +130,20 @@ async def whatsapp_check(
                 "reply": WhatsAppResponseFormatter.format_error("invalid_pincode", pincode)
             }
         
-        # Check serviceability (origin = pincode, destination = pincode)
-        # This is simplified; a real seller would have their own origin
-        serviceability = await check_serviceability(pincode, pincode, payment_method)
+        serviceability = await check_serviceability(
+            message.origin_pincode,
+            pincode,
+            payment_method,
+        )
         
         # Format response
         reply = WhatsAppResponseFormatter.format_response(
             recommended_action=serviceability["recommended_action"],
             action_reason=serviceability["action_reason"],
-            distance_km=0,  # Same location
-            zone="Local",  # Same pincode
-            estimated_days=1,
-            risk="low"
+            distance_km=serviceability["distance_km"],
+            zone=serviceability["zone"],
+            estimated_days=serviceability["estimated_days"],
+            risk=serviceability["risk"],
         )
         
         return {
@@ -143,6 +151,7 @@ async def whatsapp_check(
             "reply": reply,
             "metadata": {
                 "pincode": pincode,
+                "origin_pincode": message.origin_pincode,
                 "payment_method": payment_method,
                 "order_value": order_value
             }
@@ -155,3 +164,25 @@ async def whatsapp_check(
             "reply": WhatsAppResponseFormatter.format_error("invalid_format")
         }
 
+
+def _mask_api_key(api_key: str) -> str:
+    if len(api_key) < 8:
+        return api_key
+    return f"{api_key[:4]}...{api_key[-4:]}"
+
+
+@router.get(
+    "/usage",
+    response_model=UsageResponse,
+    tags=["Usage"],
+    summary="Get usage and remaining credits",
+    description="Returns masked API key, plan, total credits, remaining credits, and current-month usage.",
+)
+async def usage_summary(request: Request):
+    api_key = getattr(request.state, "api_key", None)
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+    summary = await get_usage_summary(api_key)
+    summary["api_key"] = _mask_api_key(summary["api_key"])
+    return summary
