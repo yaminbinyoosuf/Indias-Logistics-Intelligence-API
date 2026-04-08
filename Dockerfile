@@ -16,6 +16,6 @@ COPY ./migrations ./migrations
 COPY ./data ./data
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/healthz || exit 1
+    CMD /bin/sh -c 'curl -f "http://localhost:${PORT:-8000}/healthz" || exit 1'
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["/bin/sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
